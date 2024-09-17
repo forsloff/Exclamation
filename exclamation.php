@@ -67,10 +67,16 @@
 
         public $request = null;
         public $params = [];
+        public $settings = [];
     
-        public function __construct($matches=[]) {
+        public function __construct($matches=[], $settings) {
             $this->request = new \Exclamation\Request();
             $this->params = $matches;
+            $this->settings = $settings;
+        }
+
+        public function setting($key) {
+            return $this->settings[$key];
         }
         
         public function params($key) {
@@ -89,6 +95,7 @@
 
         public $paths = [];
         public $methods = ['get', 'post', 'patch', 'delete', 'put', 'head', 'link', 'unlink'];
+        public $settings = [];
 
         public function __construct() {
             foreach($this->methods as $method) $paths[$method] = [];
@@ -97,6 +104,7 @@
         // $this->get('/google_chrome_only', ['user_agent' => 'google_chrome'], function($i){
         //   ---
         // })
+
         public function __call($method, $arguments) {
             if(in_array($method, $this->methods)) {
                 $endpoint = new \stdClass();
@@ -122,11 +130,23 @@
             foreach($this->paths[ $request->verb() ] as $path){
                 preg_match($path->regex, $request->path(), $matches);
                 if($matches){
-                    $context = new \Exclamation\Context($matches);
+                    $context = new \Exclamation\Context($matches, $this->settings);
                     return $context->process($path->action);
                 }
             }
             $this->not_found();
+        }
+
+        public function setting($key, $value) {
+            $this->settings[$key] = $value;
+        }
+
+        public function enable($key) {
+            $this->settings[$key] = true;
+        }
+
+        public function disable($key) {
+            $this->settings[$key] = false;
         }
 
         public function covert_path_representation_to_reguler_expression($path) {
