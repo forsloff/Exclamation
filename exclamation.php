@@ -73,6 +73,15 @@
             $this->request = new \Exclamation\Request();
             $this->params = $matches;
             $this->settings = $settings;
+
+            if(empty($this->settings['Content-Type'])) {
+                $this->settings['Content-Type'] = 'application/json';
+            }
+            
+            $content_type = sprintf('%s:%s', 'Content-Type', $this->setting('Content-Type'));
+
+            header($content_type);
+
         }
 
         public function setting($key) {
