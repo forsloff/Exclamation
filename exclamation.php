@@ -34,6 +34,11 @@
             exit;
         }
 
+        public function unauthorized() {
+            echo "unauthorized";
+            exit;
+        }
+
         public function __call($method, $args) {
             if(array_key_exists($method, $this->statuses )) {
 
@@ -46,9 +51,11 @@
     class Request {
 
         public $request;
-        
+        public $headers;
+
         public function __construct($matches = null) {
-            $this->request = $_SERVER;
+            $this->request  = $_SERVER;
+            $this->headers   = apache_request_headers();
         }
 
         public function verb() {
@@ -57,6 +64,12 @@
 
         public function path() {
             return $this->request['REQUEST_URI'];
+        }
+
+        public function authorization() {
+            $authorization = $this->headers['Authorization'];
+            $token = preg_match('/^Bearer\s(\S+)$/', $authorization, $matches);
+            return $matches[1];
         }
        
     }
@@ -70,6 +83,7 @@
         public $settings = [];
     
         public function __construct($matches=[], $settings) {
+
             $this->request = new \Exclamation\Request();
             $this->params = $matches;
             $this->settings = $settings;
@@ -105,15 +119,12 @@
         public $paths = [];
         public $methods = ['get', 'post', 'patch', 'delete', 'put', 'head', 'link', 'unlink'];
         public $settings = [];
+        public $auth;
 
         public function __construct() {
             foreach($this->methods as $method) $paths[$method] = [];
         }
-        //
-        // $this->get('/google_chrome_only', ['user_agent' => 'google_chrome'], function($i){
-        //   ---
-        // })
-
+    
         public function __call($method, $arguments) {
             if(in_array($method, $this->methods)) {
                 $endpoint = new \stdClass();
@@ -135,7 +146,15 @@
         }
 
         public function run(){
+            
             $request = new \Exclamation\Request();
+
+            $status = call_user_func($this->auth, $request->authorization());
+
+            if($status == false) {
+                $this->unauthorized();
+            }
+            
             foreach($this->paths[ $request->verb() ] as $path){
                 preg_match($path->regex, $request->path(), $matches);
                 if($matches){
@@ -143,6 +162,7 @@
                     return $context->process($path->action);
                 }
             }
+            
             $this->not_found();
         }
 
@@ -156,6 +176,10 @@
 
         public function disable($key) {
             $this->settings[$key] = false;
+        }
+
+        public function authentication($action){
+            $this->auth = $action;
         }
 
         public function covert_path_representation_to_reguler_expression($path) {
